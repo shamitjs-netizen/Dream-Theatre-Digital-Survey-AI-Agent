@@ -1,0 +1,48 @@
+name: Build Dream Theatre Digital Survey APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+permissions:
+  contents: read
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Unpack uploaded source ZIP if needed
+        shell: bash
+        run: |
+          if [ ! -f app/build.gradle.kts ]; then
+            test -f DreamTheatreDigitalSurvey_MVP.zip || { echo 'Upload DreamTheatreDigitalSurvey_MVP.zip to the repository root.'; exit 1; }
+            mkdir -p unpacked
+            unzip -oq DreamTheatreDigitalSurvey_MVP.zip -d unpacked
+            cd unpacked/DreamTheatreDigitalSurvey
+            echo "PROJECT_DIR=$PWD" >> "$GITHUB_ENV"
+          else
+            echo "PROJECT_DIR=$PWD" >> "$GITHUB_ENV"
+          fi
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon assembleDebug
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DreamTheatreDigitalSurvey-debug-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
